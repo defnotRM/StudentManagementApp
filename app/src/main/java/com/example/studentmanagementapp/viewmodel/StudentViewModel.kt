@@ -14,14 +14,11 @@ class StudentViewModel(
     private val repository: StudentRepository
 ) : ViewModel() {
 
-    // Internal list of all students (STEP 5, 10, 16)
     private var allStudents by mutableStateOf<List<Student>>(emptyList())
 
-    // Search query state (Exercise 3)
     var searchQuery by mutableStateOf("")
         private set
 
-    // Filtered students based on search (Exercise 3: studentCode, name, major)
     val students: List<Student>
         get() {
             if (searchQuery.isBlank()) return allStudents
@@ -33,28 +30,25 @@ class StudentViewModel(
             }
         }
 
-    // Loading State (STEP 26)
     var isLoading by mutableStateOf(false)
         private set
 
-    // Error State (STEP 27)
     var errorMessage by mutableStateOf<String?>(null)
         private set
 
-    // Online / Offline State (Exercise 4)
     var isOnline by mutableStateOf(false)
         private set
 
-    // Selected Student for Detail Screen/View (Bonus point - page 29)
     var selectedStudent by mutableStateOf<Student?>(null)
         private set
 
-    // Add / Edit Dialog state (Exercise 1)
     var showAddEditDialog by mutableStateOf(false)
         private set
 
     var studentToEdit by mutableStateOf<Student?>(null)
         private set
+
+    private var isSaving = false
 
     init {
         loadStudents()
@@ -83,24 +77,15 @@ class StudentViewModel(
         studentToEdit = null
     }
 
-    // Load Students Flow (STEP 7, 16, 23, 26, 27)
     fun loadStudents() {
         viewModelScope.launch {
             isLoading = true
             errorMessage = null
             try {
-                // Test remote connectivity for Online/Offline badge
-                try {
-                    repository.getRemoteStudents()
-                    isOnline = true
-                } catch (e: Exception) {
-                    isOnline = false
-                }
-
-                // Load data using Offline-First strategy
                 allStudents = repository.getStudents()
+                isOnline = repository.lastFetchWasOnline
             } catch (e: Exception) {
-                errorMessage = "ไม่สามารถโหลดข้อมูลได้"
+                errorMessage = e.message ?: "Connection Error"
                 isOnline = false
             } finally {
                 isLoading = false
@@ -108,11 +93,30 @@ class StudentViewModel(
         }
     }
 
-    // Add or Update Student (Exercise 1 & Page 24 Flow)
-    fun saveStudent(studentCode: String, name: String, major: String) {
+    fun addStudent(
+        studentCode: String,
+        name: String,
+        major: String
+    ) {
         viewModelScope.launch {
             try {
-                val current = studentToEdit
+                repository.addStudent(studentCode, name, major)
+                isOnline = repository.lastFetchWasOnline
+                allStudents = if (isOnline) repository.getStudents() else repository.getLocalStudents()
+            } catch (e: Exception) {
+                errorMessage = e.message ?: "Add student failed"
+            }
+        }
+    }
+
+    fun saveStudent(studentCode: String, name: String, major: String) {
+        if (isSaving) return
+        isSaving = true
+        val current = studentToEdit
+        dismissAddEditDialog()
+
+        viewModelScope.launch {
+            try {
                 if (current != null) {
                     val updated = current.copy(
                         studentCode = studentCode,
@@ -124,22 +128,18 @@ class StudentViewModel(
                         selectedStudent = updated
                     }
                 } else {
-                    val newStudent = Student(
-                        studentCode = studentCode,
-                        name = name,
-                        major = major
-                    )
-                    repository.addStudent(newStudent)
+                    repository.addStudent(studentCode, name, major)
                 }
-                allStudents = repository.getLocalStudents()
-                dismissAddEditDialog()
+                isOnline = repository.lastFetchWasOnline
+                allStudents = if (isOnline) repository.getStudents() else repository.getLocalStudents()
             } catch (e: Exception) {
-                errorMessage = "เกิดข้อผิดพลาดในการบันทึกข้อมูล"
+                errorMessage = e.message ?: "Save student failed"
+            } finally {
+                isSaving = false
             }
         }
     }
 
-    // Delete Student (Exercise 2 - Page 27)
     fun deleteStudent(student: Student) {
         viewModelScope.launch {
             try {
@@ -147,11 +147,17 @@ class StudentViewModel(
                 if (selectedStudent?.id == student.id) {
                     selectedStudent = null
                 }
-                allStudents = repository.getLocalStudents()
+                isOnline = repository.lastFetchWasOnline
+                allStudents = if (isOnline) repository.getStudents() else repository.getLocalStudents()
             } catch (e: Exception) {
-                errorMessage = "เกิดข้อผิดพลาดในการลบข้อมูล"
+                errorMessage = e.message ?: "Delete failed"
             }
         }
+    }
+
+    fun deleteStudent(id: Int) {
+        val target = allStudents.find { it.id == id } ?: return
+        deleteStudent(target)
     }
 }
 

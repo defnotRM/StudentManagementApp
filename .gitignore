@@ -13,3 +13,9 @@
 .externalNativeBuild
 .cxx
 local.properties
+student-api/venv/
+student-api/__pycache__/
+student-api/init_db.sql
+student-api/run_server.bat
+__pycache__/
+*.pyc

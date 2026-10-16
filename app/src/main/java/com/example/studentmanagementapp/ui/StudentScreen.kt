@@ -41,6 +41,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,6 +59,10 @@ import com.example.studentmanagementapp.viewmodel.StudentViewModel
 fun StudentScreen(
     viewModel: StudentViewModel
 ) {
+    LaunchedEffect(Unit) {
+        viewModel.loadStudents()
+    }
+
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(
@@ -78,7 +83,6 @@ fun StudentScreen(
                 .padding(innerPadding)
                 .padding(16.dp)
         ) {
-            // Header Bar with Title and Online/Offline Badge (Exercise 4 - Page 28)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -90,17 +94,16 @@ fun StudentScreen(
                     fontWeight = FontWeight.Bold
                 )
 
-                // Online / Offline Status Badge
                 NetworkStatusBadge(isOnline = viewModel.isOnline)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Search Box (Exercise 3 - Page 28)
             OutlinedTextField(
                 value = viewModel.searchQuery,
                 onValueChange = { viewModel.onSearchQueryChanged(it) },
                 modifier = Modifier.fillMaxWidth(),
+                label = { Text("Search") },
                 placeholder = { Text("Search student...") },
                 leadingIcon = {
                     Icon(
@@ -114,7 +117,6 @@ fun StudentScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Action Buttons: Load Students (STEP 6) & + Add Student (Exercise 1)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -129,7 +131,7 @@ fun StudentScreen(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Load Students")
+                    Text("Refresh")
                 }
 
                 Button(
@@ -145,13 +147,12 @@ fun StudentScreen(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("+ Add Student")
+                    Text("Add Student")
                 }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Error Message State (STEP 27 - Page 25, 26)
             viewModel.errorMessage?.let { error ->
                 Card(
                     modifier = Modifier
@@ -170,7 +171,6 @@ fun StudentScreen(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            // Loading Indicator State (STEP 26 - Page 25)
             if (viewModel.isLoading) {
                 Box(
                     modifier = Modifier
@@ -181,7 +181,6 @@ fun StudentScreen(
                     CircularProgressIndicator()
                 }
             } else {
-                // Students List (LazyColumn - STEP 3 & STEP 6 & STEP 11)
                 if (viewModel.students.isEmpty()) {
                     Box(
                         modifier = Modifier
@@ -193,7 +192,7 @@ fun StudentScreen(
                             text = if (viewModel.searchQuery.isNotEmpty())
                                 "No students match '${viewModel.searchQuery}'"
                             else
-                                "No student data available. Click 'Load Students' to load.",
+                                "No student data available.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -220,7 +219,6 @@ fun StudentScreen(
         }
     }
 
-    // Detail Dialog (Bonus point - Page 29)
     viewModel.selectedStudent?.let { student ->
         StudentDetailDialog(
             student = student,
@@ -236,7 +234,6 @@ fun StudentScreen(
         )
     }
 
-    // Add / Edit Dialog (Exercise 1 - Page 27)
     if (viewModel.showAddEditDialog) {
         AddEditStudentDialog(
             studentToEdit = viewModel.studentToEdit,
@@ -248,7 +245,6 @@ fun StudentScreen(
     }
 }
 
-// Student Item Card (Page 2 & 27)
 @Composable
 fun StudentItemCard(
     student: Student,
@@ -270,7 +266,6 @@ fun StudentItemCard(
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Icon Person 👤
             Surface(
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.primaryContainer,
@@ -300,7 +295,6 @@ fun StudentItemCard(
                 )
             }
 
-            // Exercise 2 - Delete Button
             IconButton(onClick = onDelete) {
                 Icon(
                     imageVector = Icons.Default.Delete,
@@ -312,7 +306,6 @@ fun StudentItemCard(
     }
 }
 
-// Network Status Badge (Exercise 4 - Page 28)
 @Composable
 fun NetworkStatusBadge(isOnline: Boolean) {
     Surface(
@@ -346,7 +339,6 @@ fun NetworkStatusBadge(isOnline: Boolean) {
     }
 }
 
-// Student Detail Dialog (Bonus point - Page 29)
 @Composable
 fun StudentDetailDialog(
     student: Student,
@@ -413,7 +405,6 @@ fun StudentDetailDialog(
     )
 }
 
-// Add / Edit Form Dialog (Exercise 1 - Page 27)
 @Composable
 fun AddEditStudentDialog(
     studentToEdit: Student?,
@@ -430,7 +421,7 @@ fun AddEditStudentDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = if (studentToEdit != null) "Edit Student" else "+ Add Student",
+                text = if (studentToEdit != null) "Edit Student" else "Add Student",
                 fontWeight = FontWeight.Bold
             )
         },
@@ -482,9 +473,12 @@ fun AddEditStudentDialog(
             }
         },
         confirmButton = {
+            var isSubmitted by remember { mutableStateOf(false) }
             Button(
+                enabled = !isSubmitted,
                 onClick = {
                     if (studentCode.isNotBlank() && name.isNotBlank() && major.isNotBlank()) {
+                        isSubmitted = true
                         onSave(studentCode.trim(), name.trim(), major.trim())
                     } else {
                         isError = true

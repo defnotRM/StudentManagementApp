@@ -15,7 +15,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Initialize Room Database & Repository
         val database = AppDatabase.getDatabase(applicationContext)
         val repository = StudentRepository(database.studentDao())
         val viewModel = StudentViewModel(repository)
