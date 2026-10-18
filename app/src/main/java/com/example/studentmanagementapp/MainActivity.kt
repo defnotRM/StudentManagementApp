@@ -8,27 +8,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.example.studentmanagementapp.data.remote.TokenStorage
 import com.example.studentmanagementapp.ui.StudentScreen
 import com.example.studentmanagementapp.ui.login.LoginScreen
-import com.example.studentmanagementapp.ui.login.LoginViewModel
 import com.example.studentmanagementapp.ui.theme.StudentManagementAppTheme
-import com.example.studentmanagementapp.viewmodel.StudentViewModel
 import com.example.studentmanagementapp.worker.SyncScheduler
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var tokenStorage: TokenStorage
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
         SyncScheduler.schedulePeriodicSync(this)
-
-        val appContainer = (application as StudentApplication).appContainer
-        val tokenStorage = appContainer.tokenStorage
-        val authApi = appContainer.authApi
-        val repository = appContainer.studentRepository
-
-        val loginViewModel = LoginViewModel(authApi, tokenStorage)
-        val studentViewModel = StudentViewModel(repository)
 
         setContent {
             StudentManagementAppTheme {
@@ -38,7 +36,6 @@ class MainActivity : ComponentActivity() {
 
                 if (isLoggedIn) {
                     StudentScreen(
-                        viewModel = studentViewModel,
                         onLogout = {
                             tokenStorage.clearToken()
                             isLoggedIn = false
@@ -46,10 +43,8 @@ class MainActivity : ComponentActivity() {
                     )
                 } else {
                     LoginScreen(
-                        viewModel = loginViewModel,
                         onLoginSuccess = {
                             isLoggedIn = true
-                            studentViewModel.loadStudents()
                         }
                     )
                 }

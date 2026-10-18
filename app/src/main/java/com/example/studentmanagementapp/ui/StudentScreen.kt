@@ -22,7 +22,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.AlertDialog
@@ -42,7 +41,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,13 +53,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.studentmanagementapp.data.local.StudentEntity
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.studentmanagementapp.domain.model.Student
 import com.example.studentmanagementapp.viewmodel.StudentViewModel
 import com.example.studentmanagementapp.worker.SyncScheduler
 
 @Composable
 fun StudentScreen(
-    viewModel: StudentViewModel,
+    viewModel: StudentViewModel = hiltViewModel(),
     onLogout: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
@@ -249,7 +248,7 @@ fun StudentScreen(
                     ) {
                         items(
                             items = filteredStudents,
-                            key = { it.localId }
+                            key = { it.studentCode }
                         ) { student ->
                             StudentItemCard(
                                 student = student,
@@ -291,7 +290,7 @@ fun StudentScreen(
 
 @Composable
 fun StudentItemCard(
-    student: StudentEntity,
+    student: Student,
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -391,7 +390,7 @@ fun NetworkStatusBadge(isOnline: Boolean) {
 
 @Composable
 fun StudentDetailDialog(
-    student: StudentEntity,
+    student: Student,
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
@@ -406,9 +405,7 @@ fun StudentDetailDialog(
         },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
-                Text(text = "Local ID : ${student.localId}", fontSize = 15.sp)
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(text = "Server ID: ${student.serverId ?: "-"}", fontSize = 15.sp)
+                Text(text = "ID       : ${student.id}", fontSize = 15.sp)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(text = "Code     : ${student.studentCode}", fontSize = 15.sp)
                 Spacer(modifier = Modifier.height(4.dp))
@@ -461,7 +458,7 @@ fun StudentDetailDialog(
 
 @Composable
 fun AddEditStudentDialog(
-    studentToEdit: StudentEntity?,
+    studentToEdit: Student?,
     onDismiss: () -> Unit,
     onSave: (code: String, name: String, major: String) -> Unit
 ) {

@@ -2,27 +2,26 @@ package com.example.studentmanagementapp.worker
 
 import android.content.Context
 import android.util.Log
+import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.ListenableWorker.Result
 import androidx.work.WorkerParameters
-import com.example.studentmanagementapp.StudentApplication
+import com.example.studentmanagementapp.domain.usecase.SyncStudentsUseCase
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedInject
 import java.io.IOException
 
-class SyncWorker(
-    appContext: Context,
-    workerParams: WorkerParameters
+@HiltWorker
+class SyncWorker @AssistedInject constructor(
+    @Assisted appContext: Context,
+    @Assisted workerParams: WorkerParameters,
+    private val syncStudentsUseCase: SyncStudentsUseCase
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
         return try {
             Log.d("SyncWorker", "Starting background sync...")
-            val app =
-                applicationContext as StudentApplication
-
-            app.appContainer
-                .studentRepository
-                .syncPending()
-
+            syncStudentsUseCase()
             Log.d("SyncWorker", "Background sync completed successfully")
             Result.success()
         } catch (e: IOException) {

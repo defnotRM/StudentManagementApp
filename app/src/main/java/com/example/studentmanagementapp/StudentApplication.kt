@@ -1,15 +1,19 @@
 package com.example.studentmanagementapp
 
 import android.app.Application
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
+import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
 
-class StudentApplication : Application() {
+@HiltAndroidApp
+class StudentApplication : Application(), Configuration.Provider {
 
-    lateinit var appContainer: AppContainer
-        private set
+    @Inject
+    lateinit var workerFactory: HiltWorkerFactory
 
-    override fun onCreate() {
-        super.onCreate()
-
-        appContainer = AppContainer(this)
-    }
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .build()
 }

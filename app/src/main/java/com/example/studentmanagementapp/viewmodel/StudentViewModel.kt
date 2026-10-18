@@ -4,21 +4,31 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.studentmanagementapp.data.local.StudentEntity
-import com.example.studentmanagementapp.data.repository.StudentRepository
+import com.example.studentmanagementapp.domain.model.Student
+import com.example.studentmanagementapp.domain.repository.StudentRepository
+import com.example.studentmanagementapp.domain.usecase.AddStudentUseCase
+import com.example.studentmanagementapp.domain.usecase.DeleteStudentUseCase
+import com.example.studentmanagementapp.domain.usecase.GetStudentsUseCase
+import com.example.studentmanagementapp.domain.usecase.SyncStudentsUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class StudentViewModel(
+@HiltViewModel
+class StudentViewModel @Inject constructor(
+    private val getStudentsUseCase: GetStudentsUseCase,
+    private val syncStudentsUseCase: SyncStudentsUseCase,
+    private val addStudentUseCase: AddStudentUseCase,
+    private val deleteStudentUseCase: DeleteStudentUseCase,
     private val repository: StudentRepository
 ) : ViewModel() {
 
-    val students: StateFlow<List<StudentEntity>> =
-        repository.observeStudents()
+    val students: StateFlow<List<Student>> =
+        getStudentsUseCase()
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5000),
@@ -37,13 +47,13 @@ class StudentViewModel(
     var isOnline by mutableStateOf(false)
         private set
 
-    var selectedStudent by mutableStateOf<StudentEntity?>(null)
+    var selectedStudent by mutableStateOf<Student?>(null)
         private set
 
     var showAddEditDialog by mutableStateOf(false)
         private set
 
-    var studentToEdit by mutableStateOf<StudentEntity?>(null)
+    var studentToEdit by mutableStateOf<Student?>(null)
         private set
 
     private var isSaving = false
@@ -68,7 +78,7 @@ class StudentViewModel(
         searchQuery = query
     }
 
-    fun selectStudent(student: StudentEntity?) {
+    fun selectStudent(student: Student?) {
         selectedStudent = student
     }
 
@@ -77,7 +87,7 @@ class StudentViewModel(
         showAddEditDialog = true
     }
 
-    fun openEditDialog(student: StudentEntity) {
+    fun openEditDialog(student: Student) {
         studentToEdit = student
         showAddEditDialog = true
     }
@@ -103,9 +113,9 @@ class StudentViewModel(
         }
     }
 
-    fun addStudent(student: StudentEntity) {
+    fun addStudent(student: Student) {
         viewModelScope.launch {
-            repository.addStudent(student)
+            addStudentUseCase(student)
         }
     }
 
@@ -114,7 +124,7 @@ class StudentViewModel(
             isLoading = true
             errorMessage = null
             try {
-                repository.syncPending()
+                syncStudentsUseCase()
                 repository.getStudents()
                 isOnline = repository.lastFetchWasOnline
             } catch (e: Exception) {
@@ -141,13 +151,13 @@ class StudentViewModel(
                         major = major
                     )
                     repository.updateStudent(updated)
-                    if (selectedStudent?.localId == updated.localId) {
+                    if (selectedStudent?.studentCode == updated.studentCode) {
                         selectedStudent = updated
                     }
                     isOnline = repository.lastFetchWasOnline
                 } else {
-                    repository.addStudent(
-                        StudentEntity(
+                    addStudentUseCase(
+                        Student(
                             studentCode = studentCode,
                             name = name,
                             major = major,
@@ -163,11 +173,11 @@ class StudentViewModel(
         }
     }
 
-    fun deleteStudent(student: StudentEntity) {
+    fun deleteStudent(student: Student) {
         viewModelScope.launch {
             try {
-                repository.deleteStudent(student)
-                if (selectedStudent?.localId == student.localId) {
+                deleteStudentUseCase(student)
+                if (selectedStudent?.studentCode == student.studentCode) {
                     selectedStudent = null
                 }
                 isOnline = repository.lastFetchWasOnline
@@ -175,17 +185,5 @@ class StudentViewModel(
                 errorMessage = e.message ?: "Delete failed"
             }
         }
-    }
-}
-
-class StudentViewModelFactory(
-    private val repository: StudentRepository
-) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(StudentViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return StudentViewModel(repository) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }

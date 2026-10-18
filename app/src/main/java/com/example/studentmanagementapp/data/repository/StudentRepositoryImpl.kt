@@ -2,73 +2,67 @@ package com.example.studentmanagementapp.data.repository
 
 import com.example.studentmanagementapp.data.local.StudentDao
 import com.example.studentmanagementapp.data.local.StudentEntity
-import com.example.studentmanagementapp.data.remote.RetrofitClient
 import com.example.studentmanagementapp.data.remote.StudentApi
-import com.example.studentmanagementapp.data.remote.StudentDto
 import com.example.studentmanagementapp.data.remote.StudentRequest
+import com.example.studentmanagementapp.domain.model.Student
+import com.example.studentmanagementapp.domain.repository.StudentRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class StudentRepository(
+@Singleton
+class StudentRepositoryImpl @Inject constructor(
     private val dao: StudentDao,
-    private val api: StudentApi = RetrofitClient.api
-) {
+    private val api: StudentApi
+) : StudentRepository {
+
     private val syncMutex = Mutex()
 
     private val _onlineState = MutableStateFlow(false)
-    val onlineState: StateFlow<Boolean> = _onlineState.asStateFlow()
+    override val onlineState: StateFlow<Boolean> = _onlineState.asStateFlow()
 
-    var lastFetchWasOnline: Boolean = false
-        private set(value) {
+    override var lastFetchWasOnline: Boolean = false
+        set(value) {
             field = value
             _onlineState.value = value
         }
 
-    fun observeStudents(): Flow<List<StudentEntity>> {
-        return dao.observeStudents()
+    override fun observeStudents(): Flow<List<Student>> {
+        return dao.observeStudents().map { entities ->
+            entities.map { entity ->
+                Student(
+                    id = entity.serverId ?: entity.localId,
+                    studentCode = entity.studentCode,
+                    name = entity.name,
+                    major = entity.major,
+                    syncStatus = entity.syncStatus
+                )
+            }
+        }
     }
 
-    suspend fun getLocalStudents(): List<StudentEntity> {
-        return dao.getAllStudents()
-    }
-
-    suspend fun getRemoteStudents(): List<StudentDto> {
-        return api.getStudents()
-    }
-
-    suspend fun addStudent(
-        student: StudentEntity
-    ) {
+    override suspend fun addStudent(student: Student) {
         dao.insertStudent(
-            student.copy(syncStatus = "PENDING")
+            StudentEntity(
+                studentCode = student.studentCode,
+                name = student.name,
+                major = student.major,
+                syncStatus = "PENDING"
+            )
         )
         dao.removeDuplicateStudents()
     }
 
-    suspend fun addStudent(
-        studentCode: String,
-        name: String,
-        major: String
-    ) {
-        addStudent(
-            StudentEntity(
-                studentCode = studentCode,
-                name = name,
-                major = major,
-                syncStatus = "PENDING"
-            )
-        )
-    }
-
-    suspend fun syncPending() {
+    override suspend fun syncPending() {
         syncMutex.withLock {
             dao.removeDuplicateStudents()
-            val pending =
-                dao.getPendingStudents()
+            val pending = dao.getPendingStudents()
 
             for (student in pending) {
                 val response = api.createStudent(
@@ -92,7 +86,7 @@ class StudentRepository(
         }
     }
 
-    suspend fun getStudents(): List<StudentEntity> {
+    override suspend fun getStudents(): List<Student> {
         return syncMutex.withLock {
             dao.removeDuplicateStudents()
             try {
@@ -117,7 +111,15 @@ class StudentRepository(
                 dao.removeDuplicateStudents()
 
                 lastFetchWasOnline = true
-                dao.getAllStudents()
+                syncedStudents.map {
+                    Student(
+                        id = it.serverId ?: it.localId,
+                        studentCode = it.studentCode,
+                        name = it.name,
+                        major = it.major,
+                        syncStatus = it.syncStatus
+                    )
+                }
             } catch (e: Exception) {
                 lastFetchWasOnline = false
                 dao.removeDuplicateStudents()
@@ -130,55 +132,74 @@ class StudentRepository(
                     )
                     dao.insertAll(seedData)
                     dao.removeDuplicateStudents()
-                    dao.getAllStudents()
+                    seedData.map {
+                        Student(
+                            id = it.serverId ?: it.localId,
+                            studentCode = it.studentCode,
+                            name = it.name,
+                            major = it.major,
+                            syncStatus = it.syncStatus
+                        )
+                    }
                 } else {
-                    cached
+                    cached.map {
+                        Student(
+                            id = it.serverId ?: it.localId,
+                            studentCode = it.studentCode,
+                            name = it.name,
+                            major = it.major,
+                            syncStatus = it.syncStatus
+                        )
+                    }
                 }
             }
         }
     }
 
-    suspend fun updateStudent(student: StudentEntity) {
+    override suspend fun updateStudent(student: Student) {
         try {
-            val targetId = student.serverId ?: student.localId
             val updatedDto = api.updateStudent(
-                id = targetId,
+                id = student.id,
                 student = StudentRequest(
                     studentCode = student.studentCode,
                     name = student.name,
                     major = student.major
                 )
             )
-            dao.updateStudent(
-                student.copy(
-                    serverId = updatedDto.id,
-                    syncStatus = "SYNCED",
-                    updatedAt = System.currentTimeMillis()
+            val current = dao.getAllStudents().firstOrNull { it.studentCode == student.studentCode }
+            if (current != null) {
+                dao.updateStudent(
+                    current.copy(
+                        serverId = updatedDto.id,
+                        name = updatedDto.name,
+                        major = updatedDto.major,
+                        syncStatus = "SYNCED",
+                        updatedAt = System.currentTimeMillis()
+                    )
                 )
-            )
+            }
             lastFetchWasOnline = true
         } catch (e: Exception) {
             lastFetchWasOnline = false
-            dao.updateStudent(
-                student.copy(
-                    syncStatus = "PENDING",
-                    updatedAt = System.currentTimeMillis()
-                )
-            )
         }
     }
 
-    suspend fun deleteStudent(student: StudentEntity) {
+    override suspend fun deleteStudent(student: Student) {
         try {
-            val targetId = student.serverId
-            if (targetId != null) {
-                api.deleteStudent(targetId)
+            if (student.id > 0) {
+                api.deleteStudent(student.id)
             }
-            dao.deleteStudent(student)
+            val current = dao.getAllStudents().firstOrNull { it.studentCode == student.studentCode }
+            if (current != null) {
+                dao.deleteStudent(current)
+            }
             lastFetchWasOnline = true
         } catch (e: Exception) {
             lastFetchWasOnline = false
-            dao.deleteStudent(student)
+            val current = dao.getAllStudents().firstOrNull { it.studentCode == student.studentCode }
+            if (current != null) {
+                dao.deleteStudent(current)
+            }
         }
     }
 }
