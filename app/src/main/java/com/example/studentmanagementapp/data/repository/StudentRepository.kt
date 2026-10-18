@@ -7,6 +7,9 @@ import com.example.studentmanagementapp.data.remote.StudentApi
 import com.example.studentmanagementapp.data.remote.StudentDto
 import com.example.studentmanagementapp.data.remote.StudentRequest
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -16,8 +19,14 @@ class StudentRepository(
 ) {
     private val syncMutex = Mutex()
 
+    private val _onlineState = MutableStateFlow(false)
+    val onlineState: StateFlow<Boolean> = _onlineState.asStateFlow()
+
     var lastFetchWasOnline: Boolean = false
-        private set
+        private set(value) {
+            field = value
+            _onlineState.value = value
+        }
 
     fun observeStudents(): Flow<List<StudentEntity>> {
         return dao.observeStudents()

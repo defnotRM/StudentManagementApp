@@ -49,7 +49,19 @@ class StudentViewModel(
     private var isSaving = false
 
     init {
+        viewModelScope.launch {
+            repository.onlineState.collect { online ->
+                isOnline = online
+                if (online) {
+                    errorMessage = null
+                }
+            }
+        }
         loadStudents()
+    }
+
+    fun clearError() {
+        errorMessage = null
     }
 
     fun onSearchQueryChanged(query: String) {

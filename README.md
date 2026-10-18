@@ -1,6 +1,6 @@
 # Student Management App
 
-โปรเจกต์แอปพลิเคชันจัดการข้อมูลนักศึกษาสำหรับรายวิชาการพัฒนาแอปพลิเคชันบนอุปกรณ์เคลื่อนที่ (Lab 1, Lab 2, Lab 3, และ Lab 4)
+โปรเจกต์แอปพลิเคชันจัดการข้อมูลนักศึกษาสำหรับรายวิชาการพัฒนาแอปพลิเคชันบนอุปกรณ์เคลื่อนที่ (Lab 1, Lab 2, Lab 3, Lab 4, และ Lab 5)
 
 ## รายละเอียดโปรเจกต์
 
@@ -8,10 +8,11 @@
 - **Lab 2:** เชื่อมต่อแอปพลิเคชัน Android เข้ากับระบบ Backend REST API ที่พัฒนาด้วย FastAPI และฐานข้อมูล PostgreSQL ผ่าน Retrofit
 - **Lab 3:** เพิ่มระบบยืนยันตัวตน (Authentication) ด้วย JWT (JSON Web Token) โดยมีหน้าเข้าสู่ระบบ (`LoginScreen`), การจัดเก็บ Access Token ด้วย `TokenStorage`, และการแนบ Header `Authorization: Bearer <token>` อัตโนมัติผ่าน `AuthInterceptor`
 - **Lab 4:** ปรับปรุงสถาปัตยกรรมสู่ระบบ Offline-First และ Synchronization เต็มรูปแบบ โดยหน้าจออ่านข้อมูลจาก Room ผ่าน `Flow` (`StateFlow`) เป็นหลัก เมื่อเพิ่มนักศึกษาใหม่จะบันทึกลง Room ด้วยสถานะ `PENDING` ทันทีแม้ไม่มีอินเทอร์เน็ต และเมื่อกดปุ่ม `Sync Now` ระบบจะส่งรายการที่ค้างอยู่ (`PENDING`) ไปยัง FastAPI เพื่อบันทึกลง PostgreSQL แล้วอัปเดต `serverId` และเปลี่ยนสถานะเป็น `SYNCED`
+- **Lab 5:** เพิ่มระบบ Background Synchronization ด้วย Android WorkManager โดยสร้าง `AppContainer` และ `StudentApplication` สำหรับจัดการ Dependency, สร้าง `SyncWorker` (`CoroutineWorker`) สำหรับซิงก์ข้อมูลเบื้องหลัง, และสร้าง `SyncScheduler` เพื่อตั้งงานซิงก์แบบครั้งเดียว (`OneTimeWorkRequest` ผ่านปุ่ม `Sync in Background`) และแบบทำซ้ำอัตโนมัติทุก 15 นาที (`PeriodicWorkRequest`) เมื่อมีสัญญาณเครือข่าย (`NetworkType.CONNECTED`)
 
 ## โครงสร้างโปรเจกต์
 
-- `app/` - โค้ดฝั่ง Android Application (Jetpack Compose, ViewModel, Repository, Room, Retrofit, OkHttp Interceptor, TokenStorage)
+- `app/` - โค้ดฝั่ง Android Application (Jetpack Compose, ViewModel, Repository, Room, Retrofit, OkHttp Interceptor, TokenStorage, WorkManager)
 - `student-api/` - โค้ดฝั่ง Backend Server (FastAPI, OAuth2 + JWT Authentication, SQLAlchemy, Pydantic, PostgreSQL)
 
 ## วิธีการรันระบบ
@@ -46,10 +47,9 @@ pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-### 3. รันฝั่ง Android Application และทดสอบ Offline-First (Lab 4)
+### 3. รันฝั่ง Android Application และทดสอบ Background Sync (Lab 5)
 1. เปิดโปรเจกต์ใน Android Studio แล้วกด Run
 2. เข้าสู่ระบบด้วย Username: `admin` และ Password: `1234`
-3. ทดสอบปิดอินเทอร์เน็ตหรือหยุด FastAPI Server แล้วกดปุ่ม `Add Student` เพื่อเพิ่มนักศึกษาใหม่
-4. รายชื่อนักศึกษาใหม่จะแสดงบนหน้าจอทันทีโดยมีสถานะ `Sync: PENDING`
-5. เปิดอินเทอร์เน็ตหรือรัน FastAPI Server ขึ้นมาใหม่ แล้วกดปุ่ม `Sync Now`
-6. ข้อมูลจะถูกส่งเข้า PostgreSQL และสถานะบนหน้าจอจะเปลี่ยนเป็น `Sync: SYNCED`
+3. ทดสอบเพิ่มนักศึกษาใหม่ (สถานะจะขึ้น `Sync: PENDING`)
+4. กดปุ่ม `Sync in Background` เพื่อให้ `SyncScheduler` ส่งงานเข้า `WorkManager`
+5. เมื่อเงื่อนไขเครือข่ายพร้อม (`NetworkType.CONNECTED`) `SyncWorker` จะทำงานเบื้องหลัง ส่งข้อมูลไปยัง FastAPI/PostgreSQL และเปลี่ยนสถานะใน Room เป็น `Sync: SYNCED` อัตโนมัติ

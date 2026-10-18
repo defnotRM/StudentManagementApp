@@ -51,17 +51,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.studentmanagementapp.data.local.StudentEntity
 import com.example.studentmanagementapp.viewmodel.StudentViewModel
+import com.example.studentmanagementapp.worker.SyncScheduler
 
 @Composable
 fun StudentScreen(
     viewModel: StudentViewModel,
     onLogout: (() -> Unit)? = null
 ) {
+    val context = LocalContext.current
     val allStudents by viewModel.students.collectAsState()
 
     val filteredStudents = remember(allStudents, viewModel.searchQuery) {
@@ -178,6 +181,18 @@ fun StudentScreen(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Add Student")
                 }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Button(
+                onClick = {
+                    viewModel.clearError()
+                    SyncScheduler.syncNow(context)
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Sync in Background")
             }
 
             Spacer(modifier = Modifier.height(12.dp))
