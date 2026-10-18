@@ -57,7 +57,8 @@ import com.example.studentmanagementapp.viewmodel.StudentViewModel
 
 @Composable
 fun StudentScreen(
-    viewModel: StudentViewModel
+    viewModel: StudentViewModel,
+    onLogout: (() -> Unit)? = null
 ) {
     LaunchedEffect(Unit) {
         viewModel.loadStudents()
@@ -94,7 +95,17 @@ fun StudentScreen(
                     fontWeight = FontWeight.Bold
                 )
 
-                NetworkStatusBadge(isOnline = viewModel.isOnline)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    NetworkStatusBadge(isOnline = viewModel.isOnline)
+                    if (onLogout != null) {
+                        TextButton(onClick = onLogout) {
+                            Text("Logout")
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))

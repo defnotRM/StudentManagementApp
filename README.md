@@ -1,16 +1,17 @@
 # Student Management App
 
-โปรเจกต์แอปพลิเคชันจัดการข้อมูลนักศึกษาสำหรับรายวิชาการพัฒนาแอปพลิเคชันบนอุปกรณ์เคลื่อนที่ (Data Storage and Access Part 1 & Part 2)
+โปรเจกต์แอปพลิเคชันจัดการข้อมูลนักศึกษาสำหรับรายวิชาการพัฒนาแอปพลิเคชันบนอุปกรณ์เคลื่อนที่ (Lab 1, Lab 2, และ Lab 3)
 
 ## รายละเอียดโปรเจกต์
 
-- **Part 1:** พัฒนาแอปพลิเคชัน Android ด้วย Jetpack Compose ตามสถาปัตยกรรม MVVM ร่วมกับ Repository และจัดเก็บข้อมูลภายในเครื่องด้วย Room Database (SQLite)
-- **Part 2:** เชื่อมต่อแอปพลิเคชัน Android เข้ากับระบบ Backend REST API ที่พัฒนาด้วย FastAPI และฐานข้อมูล PostgreSQL ผ่าน Retrofit พร้อมรองรับการทำงานแบบ Online/Offline (Offline-First) โดยเมื่อเชื่อมต่อเซิร์ฟเวอร์ได้จะดึงข้อมูลจาก PostgreSQL มาบันทึกลง Room และหากไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้จะดึงข้อมูลเดิมจาก Room ขึ้นมาแสดงผล
+- **Lab 1 (Part 1):** พัฒนาแอปพลิเคชัน Android ด้วย Jetpack Compose ตามสถาปัตยกรรม MVVM ร่วมกับ Repository และจัดเก็บข้อมูลภายในเครื่องด้วย Room Database (SQLite)
+- **Lab 2 (Part 2):** เชื่อมต่อแอปพลิเคชัน Android เข้ากับระบบ Backend REST API ที่พัฒนาด้วย FastAPI และฐานข้อมูล PostgreSQL ผ่าน Retrofit พร้อมรองรับการทำงานแบบ Online/Offline (Offline-First)
+- **Lab 3:** เพิ่มระบบยืนยันตัวตน (Authentication) ด้วย JWT (JSON Web Token) โดยมีหน้าเข้าสู่ระบบ (`LoginScreen`), การเรียก Login API (`POST /token`), การจัดเก็บ Access Token ลงในเครื่องด้วย `TokenStorage` (`SharedPreferences`), และการแนบ Header `Authorization: Bearer <token>` ไปกับทุก Request อัตโนมัติผ่าน `AuthInterceptor`
 
 ## โครงสร้างโปรเจกต์
 
-- `app/` - โค้ดฝั่ง Android Application (Jetpack Compose, ViewModel, Repository, Room, Retrofit)
-- `student-api/` - โค้ดฝั่ง Backend Server (FastAPI, SQLAlchemy, Pydantic, PostgreSQL)
+- `app/` - โค้ดฝั่ง Android Application (Jetpack Compose, ViewModel, Repository, Room, Retrofit, OkHttp Interceptor, TokenStorage)
+- `student-api/` - โค้ดฝั่ง Backend Server (FastAPI, OAuth2 + JWT Authentication, SQLAlchemy, Pydantic, PostgreSQL)
 
 ## วิธีการรันระบบ
 
@@ -44,10 +45,12 @@ pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-เมื่อรันสำเร็จสามารถเปิดทดสอบ API ผ่าน Swagger UI ได้ที่ `http://127.0.0.1:8000/docs`
+เมื่อรันสำเร็จสามารถเปิดทดสอบ API และระบบ Authorize ผ่าน Swagger UI ได้ที่ `http://127.0.0.1:8000/docs`
 
 ### 3. รันฝั่ง Android Application
 1. เปิดโปรเจกต์ใน Android Studio
 2. กด Sync Project with Gradle Files
-3. เปิด Android Emulator (ระบบใช้ `http://10.0.2.2:8000/` ในการเชื่อมต่อไปยัง FastAPI บนเครื่องคอมพิวเตอร์)
-4. กดปุ่ม Run เพื่อติดตั้งและรันแอปพลิเคชัน
+3. เปิด Android Emulator แล้วกดปุ่ม Run
+4. เข้าสู่ระบบที่หน้า Login ด้วยบัญชีทดสอบ:
+   - **Username:** `admin`
+   - **Password:** `1234`
