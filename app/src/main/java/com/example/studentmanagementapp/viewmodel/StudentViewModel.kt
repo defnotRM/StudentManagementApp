@@ -6,29 +6,27 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.studentmanagementapp.data.local.StudentEntity
 import com.example.studentmanagementapp.data.repository.StudentRepository
-import com.example.studentmanagementapp.model.Student
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class StudentViewModel(
     private val repository: StudentRepository
 ) : ViewModel() {
 
-    private var allStudents by mutableStateOf<List<Student>>(emptyList())
+    val students: StateFlow<List<StudentEntity>> =
+        repository.observeStudents()
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = emptyList()
+            )
 
     var searchQuery by mutableStateOf("")
         private set
-
-    val students: List<Student>
-        get() {
-            if (searchQuery.isBlank()) return allStudents
-            val query = searchQuery.trim().lowercase()
-            return allStudents.filter {
-                it.studentCode.lowercase().contains(query) ||
-                it.name.lowercase().contains(query) ||
-                it.major.lowercase().contains(query)
-            }
-        }
 
     var isLoading by mutableStateOf(false)
         private set
@@ -39,13 +37,13 @@ class StudentViewModel(
     var isOnline by mutableStateOf(false)
         private set
 
-    var selectedStudent by mutableStateOf<Student?>(null)
+    var selectedStudent by mutableStateOf<StudentEntity?>(null)
         private set
 
     var showAddEditDialog by mutableStateOf(false)
         private set
 
-    var studentToEdit by mutableStateOf<Student?>(null)
+    var studentToEdit by mutableStateOf<StudentEntity?>(null)
         private set
 
     private var isSaving = false
@@ -58,7 +56,7 @@ class StudentViewModel(
         searchQuery = query
     }
 
-    fun selectStudent(student: Student?) {
+    fun selectStudent(student: StudentEntity?) {
         selectedStudent = student
     }
 
@@ -67,7 +65,7 @@ class StudentViewModel(
         showAddEditDialog = true
     }
 
-    fun openEditDialog(student: Student) {
+    fun openEditDialog(student: StudentEntity) {
         studentToEdit = student
         showAddEditDialog = true
     }
@@ -82,7 +80,7 @@ class StudentViewModel(
             isLoading = true
             errorMessage = null
             try {
-                allStudents = repository.getStudents()
+                repository.getStudents()
                 isOnline = repository.lastFetchWasOnline
             } catch (e: Exception) {
                 errorMessage = e.message ?: "Connection Error"
@@ -93,18 +91,25 @@ class StudentViewModel(
         }
     }
 
-    fun addStudent(
-        studentCode: String,
-        name: String,
-        major: String
-    ) {
+    fun addStudent(student: StudentEntity) {
         viewModelScope.launch {
+            repository.addStudent(student)
+        }
+    }
+
+    fun syncStudents() {
+        viewModelScope.launch {
+            isLoading = true
+            errorMessage = null
             try {
-                repository.addStudent(studentCode, name, major)
+                repository.syncPending()
+                repository.getStudents()
                 isOnline = repository.lastFetchWasOnline
-                allStudents = if (isOnline) repository.getStudents() else repository.getLocalStudents()
             } catch (e: Exception) {
-                errorMessage = e.message ?: "Add student failed"
+                errorMessage = "Sync failed: Server unreachable"
+                isOnline = false
+            } finally {
+                isLoading = false
             }
         }
     }
@@ -124,14 +129,20 @@ class StudentViewModel(
                         major = major
                     )
                     repository.updateStudent(updated)
-                    if (selectedStudent?.id == updated.id) {
+                    if (selectedStudent?.localId == updated.localId) {
                         selectedStudent = updated
                     }
+                    isOnline = repository.lastFetchWasOnline
                 } else {
-                    repository.addStudent(studentCode, name, major)
+                    repository.addStudent(
+                        StudentEntity(
+                            studentCode = studentCode,
+                            name = name,
+                            major = major,
+                            syncStatus = "PENDING"
+                        )
+                    )
                 }
-                isOnline = repository.lastFetchWasOnline
-                allStudents = if (isOnline) repository.getStudents() else repository.getLocalStudents()
             } catch (e: Exception) {
                 errorMessage = e.message ?: "Save student failed"
             } finally {
@@ -140,24 +151,18 @@ class StudentViewModel(
         }
     }
 
-    fun deleteStudent(student: Student) {
+    fun deleteStudent(student: StudentEntity) {
         viewModelScope.launch {
             try {
                 repository.deleteStudent(student)
-                if (selectedStudent?.id == student.id) {
+                if (selectedStudent?.localId == student.localId) {
                     selectedStudent = null
                 }
                 isOnline = repository.lastFetchWasOnline
-                allStudents = if (isOnline) repository.getStudents() else repository.getLocalStudents()
             } catch (e: Exception) {
                 errorMessage = e.message ?: "Delete failed"
             }
         }
-    }
-
-    fun deleteStudent(id: Int) {
-        val target = allStudents.find { it.id == id } ?: return
-        deleteStudent(target)
     }
 }
 

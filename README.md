@@ -1,12 +1,13 @@
 # Student Management App
 
-โปรเจกต์แอปพลิเคชันจัดการข้อมูลนักศึกษาสำหรับรายวิชาการพัฒนาแอปพลิเคชันบนอุปกรณ์เคลื่อนที่ (Lab 1, Lab 2, และ Lab 3)
+โปรเจกต์แอปพลิเคชันจัดการข้อมูลนักศึกษาสำหรับรายวิชาการพัฒนาแอปพลิเคชันบนอุปกรณ์เคลื่อนที่ (Lab 1, Lab 2, Lab 3, และ Lab 4)
 
 ## รายละเอียดโปรเจกต์
 
-- **Lab 1 (Part 1):** พัฒนาแอปพลิเคชัน Android ด้วย Jetpack Compose ตามสถาปัตยกรรม MVVM ร่วมกับ Repository และจัดเก็บข้อมูลภายในเครื่องด้วย Room Database (SQLite)
-- **Lab 2 (Part 2):** เชื่อมต่อแอปพลิเคชัน Android เข้ากับระบบ Backend REST API ที่พัฒนาด้วย FastAPI และฐานข้อมูล PostgreSQL ผ่าน Retrofit พร้อมรองรับการทำงานแบบ Online/Offline (Offline-First)
-- **Lab 3:** เพิ่มระบบยืนยันตัวตน (Authentication) ด้วย JWT (JSON Web Token) โดยมีหน้าเข้าสู่ระบบ (`LoginScreen`), การเรียก Login API (`POST /token`), การจัดเก็บ Access Token ลงในเครื่องด้วย `TokenStorage` (`SharedPreferences`), และการแนบ Header `Authorization: Bearer <token>` ไปกับทุก Request อัตโนมัติผ่าน `AuthInterceptor`
+- **Lab 1:** พัฒนาแอปพลิเคชัน Android ด้วย Jetpack Compose ตามสถาปัตยกรรม MVVM ร่วมกับ Repository และจัดเก็บข้อมูลภายในเครื่องด้วย Room Database (SQLite)
+- **Lab 2:** เชื่อมต่อแอปพลิเคชัน Android เข้ากับระบบ Backend REST API ที่พัฒนาด้วย FastAPI และฐานข้อมูล PostgreSQL ผ่าน Retrofit
+- **Lab 3:** เพิ่มระบบยืนยันตัวตน (Authentication) ด้วย JWT (JSON Web Token) โดยมีหน้าเข้าสู่ระบบ (`LoginScreen`), การจัดเก็บ Access Token ด้วย `TokenStorage`, และการแนบ Header `Authorization: Bearer <token>` อัตโนมัติผ่าน `AuthInterceptor`
+- **Lab 4:** ปรับปรุงสถาปัตยกรรมสู่ระบบ Offline-First และ Synchronization เต็มรูปแบบ โดยหน้าจออ่านข้อมูลจาก Room ผ่าน `Flow` (`StateFlow`) เป็นหลัก เมื่อเพิ่มนักศึกษาใหม่จะบันทึกลง Room ด้วยสถานะ `PENDING` ทันทีแม้ไม่มีอินเทอร์เน็ต และเมื่อกดปุ่ม `Sync Now` ระบบจะส่งรายการที่ค้างอยู่ (`PENDING`) ไปยัง FastAPI เพื่อบันทึกลง PostgreSQL แล้วอัปเดต `serverId` และเปลี่ยนสถานะเป็น `SYNCED`
 
 ## โครงสร้างโปรเจกต์
 
@@ -45,12 +46,10 @@ pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-เมื่อรันสำเร็จสามารถเปิดทดสอบ API และระบบ Authorize ผ่าน Swagger UI ได้ที่ `http://127.0.0.1:8000/docs`
-
-### 3. รันฝั่ง Android Application
-1. เปิดโปรเจกต์ใน Android Studio
-2. กด Sync Project with Gradle Files
-3. เปิด Android Emulator แล้วกดปุ่ม Run
-4. เข้าสู่ระบบที่หน้า Login ด้วยบัญชีทดสอบ:
-   - **Username:** `admin`
-   - **Password:** `1234`
+### 3. รันฝั่ง Android Application และทดสอบ Offline-First (Lab 4)
+1. เปิดโปรเจกต์ใน Android Studio แล้วกด Run
+2. เข้าสู่ระบบด้วย Username: `admin` และ Password: `1234`
+3. ทดสอบปิดอินเทอร์เน็ตหรือหยุด FastAPI Server แล้วกดปุ่ม `Add Student` เพื่อเพิ่มนักศึกษาใหม่
+4. รายชื่อนักศึกษาใหม่จะแสดงบนหน้าจอทันทีโดยมีสถานะ `Sync: PENDING`
+5. เปิดอินเทอร์เน็ตหรือรัน FastAPI Server ขึ้นมาใหม่ แล้วกดปุ่ม `Sync Now`
+6. ข้อมูลจะถูกส่งเข้า PostgreSQL และสถานะบนหน้าจอจะเปลี่ยนเป็น `Sync: SYNCED`

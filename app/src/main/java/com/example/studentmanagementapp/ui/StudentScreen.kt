@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -42,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,7 +54,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.studentmanagementapp.model.Student
+import com.example.studentmanagementapp.data.local.StudentEntity
 import com.example.studentmanagementapp.viewmodel.StudentViewModel
 
 @Composable
@@ -60,8 +62,19 @@ fun StudentScreen(
     viewModel: StudentViewModel,
     onLogout: (() -> Unit)? = null
 ) {
-    LaunchedEffect(Unit) {
-        viewModel.loadStudents()
+    val allStudents by viewModel.students.collectAsState()
+
+    val filteredStudents = remember(allStudents, viewModel.searchQuery) {
+        if (viewModel.searchQuery.isBlank()) {
+            allStudents
+        } else {
+            val query = viewModel.searchQuery.trim().lowercase()
+            allStudents.filter {
+                it.studentCode.lowercase().contains(query) ||
+                it.name.lowercase().contains(query) ||
+                it.major.lowercase().contains(query)
+            }
+        }
     }
 
     Scaffold(
@@ -91,18 +104,23 @@ fun StudentScreen(
             ) {
                 Text(
                     text = "Student Management",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
                 )
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     NetworkStatusBadge(isOnline = viewModel.isOnline)
                     if (onLogout != null) {
                         TextButton(onClick = onLogout) {
-                            Text("Logout")
+                            Text(
+                                text = "Logout",
+                                maxLines = 1,
+                                softWrap = false
+                            )
                         }
                     }
                 }
@@ -133,16 +151,16 @@ fun StudentScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Button(
-                    onClick = { viewModel.loadStudents() },
+                    onClick = { viewModel.syncStudents() },
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Refresh,
+                        imageVector = Icons.Default.Sync,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Refresh")
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Sync Now")
                 }
 
                 Button(
@@ -157,7 +175,7 @@ fun StudentScreen(
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text("Add Student")
                 }
             }
@@ -192,7 +210,7 @@ fun StudentScreen(
                     CircularProgressIndicator()
                 }
             } else {
-                if (viewModel.students.isEmpty()) {
+                if (filteredStudents.isEmpty()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -215,8 +233,8 @@ fun StudentScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(
-                            items = viewModel.students,
-                            key = { it.id }
+                            items = filteredStudents,
+                            key = { it.localId }
                         ) { student ->
                             StudentItemCard(
                                 student = student,
@@ -258,7 +276,7 @@ fun StudentScreen(
 
 @Composable
 fun StudentItemCard(
-    student: Student,
+    student: StudentEntity,
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -303,6 +321,12 @@ fun StudentItemCard(
                     text = student.major,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp
+                )
+                Text(
+                    text = "Sync: ${student.syncStatus}",
+                    color = if (student.syncStatus == "SYNCED") Color(0xFF2E7D32) else Color(0xFFE65100),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
                 )
             }
 
@@ -352,7 +376,7 @@ fun NetworkStatusBadge(isOnline: Boolean) {
 
 @Composable
 fun StudentDetailDialog(
-    student: Student,
+    student: StudentEntity,
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
@@ -367,13 +391,17 @@ fun StudentDetailDialog(
         },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
-                Text(text = "ID       : ${student.id}", fontSize = 15.sp)
+                Text(text = "Local ID : ${student.localId}", fontSize = 15.sp)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(text = "Server ID: ${student.serverId ?: "-"}", fontSize = 15.sp)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(text = "Code     : ${student.studentCode}", fontSize = 15.sp)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(text = "Name     : ${student.name}", fontSize = 15.sp)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(text = "Major    : ${student.major}", fontSize = 15.sp)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(text = "Sync     : ${student.syncStatus}", fontSize = 15.sp)
             }
         },
         confirmButton = {
@@ -418,7 +446,7 @@ fun StudentDetailDialog(
 
 @Composable
 fun AddEditStudentDialog(
-    studentToEdit: Student?,
+    studentToEdit: StudentEntity?,
     onDismiss: () -> Unit,
     onSave: (code: String, name: String, major: String) -> Unit
 ) {

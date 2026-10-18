@@ -6,33 +6,38 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
-import com.example.studentmanagementapp.model.Student
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface StudentDao {
-    @Query("SELECT * FROM students ORDER BY id ASC")
-    suspend fun getAllStudents(): List<Student>
 
-    @Query("SELECT * FROM students WHERE id = :id")
-    suspend fun getStudentById(id: Int): Student?
+    @Query("SELECT * FROM students ORDER BY studentCode ASC")
+    fun observeStudents(): Flow<List<StudentEntity>>
+
+    @Query("SELECT * FROM students WHERE syncStatus = 'PENDING'")
+    suspend fun getPendingStudents(): List<StudentEntity>
+
+    @Query("SELECT * FROM students ORDER BY studentCode ASC")
+    suspend fun getAllStudents(): List<StudentEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertStudent(student: Student)
+    suspend fun insertStudent(student: StudentEntity)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(
-        students: List<Student>
-    )
+    suspend fun insertAll(students: List<StudentEntity>)
+
+    @Update
+    suspend fun updateStudent(student: StudentEntity)
+
+    @Delete
+    suspend fun deleteStudent(student: StudentEntity)
+
+    @Query("DELETE FROM students WHERE syncStatus = 'SYNCED'")
+    suspend fun deleteSyncedStudents()
+
+    @Query("DELETE FROM students WHERE localId NOT IN (SELECT MIN(localId) FROM students GROUP BY studentCode)")
+    suspend fun removeDuplicateStudents()
 
     @Query("DELETE FROM students")
     suspend fun deleteAll()
-
-    @Update
-    suspend fun updateStudent(student: Student)
-
-    @Delete
-    suspend fun deleteStudent(student: Student)
-
-    @Query("DELETE FROM students WHERE id = :id")
-    suspend fun deleteById(id: Int)
 }

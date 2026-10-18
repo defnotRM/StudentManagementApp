@@ -14,13 +14,13 @@ interface StudentApi {
 
     @POST("students")
     suspend fun createStudent(
-        @Body student: StudentCreateRequest
+        @Body student: StudentRequest
     ): StudentDto
 
     @PUT("students/{id}")
     suspend fun updateStudent(
         @Path("id") id: Int,
-        @Body student: StudentCreateRequest
+        @Body student: StudentRequest
     ): StudentDto
 
     @DELETE("students/{id}")

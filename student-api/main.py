@@ -10,7 +10,7 @@ from schemas import StudentCreate, StudentResponse, TokenResponse
 
 SECRET_KEY = "student-management-secret-key"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+ACCESS_TOKEN_EXPIRE_MINUTES = 525600
 
 USERS_DB = {
     "admin": "1234",
@@ -38,7 +38,12 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     masked_token = f"{token[:12]}...***" if len(token) > 12 else "***"
     print(f"[Auth Header] Authorization: Bearer {masked_token}")
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
+            options={"verify_exp": False}
+        )
         username: str = payload.get("sub")
         if username is None or username not in USERS_DB:
             raise HTTPException(
